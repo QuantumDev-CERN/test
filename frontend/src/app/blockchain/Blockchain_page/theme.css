@@ -1,0 +1,81 @@
+/* This file contains all the scoped styles for the blockchain page */
+
+@layer base {
+  /*
+  All variables from your old :root are now inside this class.
+  They will only apply to elements wrapped in "blockchain-theme".
+  */
+  .blockchain-theme {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 222 44% 15%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 44% 15%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 188 94% 57%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 222 44% 20%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 222 44% 18%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 38 92% 50%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 222 44% 25%;
+    --input: 222 44% 20%;
+    --ring: 188 94% 57%;
+    --radius: 0.75rem;
+    --node-glow: 188 94% 57%;
+    --link-flow: 188 94% 67%;
+    --warm-glow: 38 92% 50%;
+    --gradient-primary: linear-gradient(135deg, hsl(188 94% 57%) 0%, hsl(222 47% 11%) 100%);
+    --gradient-warm: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(188 94% 57%) 100%);
+    --gradient-radial: radial-gradient(circle at 50% 0%, hsl(188 94% 57% / 0.15) 0%, transparent 50%);
+    --shadow-glow: 0 0 40px hsl(188 94% 57% / 0.3);
+    --shadow-warm: 0 0 30px hsl(38 92% 50% / 0.4);
+    --shadow-card: 0 4px 20px hsl(222 47% 11% / 0.6);
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    --sidebar-background: 222 44% 13%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 188 94% 57%;
+    --sidebar-primary-foreground: 222 47% 11%;
+    --sidebar-accent: 222 44% 20%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 222 44% 25%;
+    --sidebar-ring: 188 94% 57%;
+
+    /* This applies the dark theme's background and text color automatically */
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+}
+
+/*
+These are your custom utility classes.
+They will now work *inside* any .blockchain-theme element.
+*/
+@layer utilities {
+  .blockchain-theme .glow-text {
+    text-shadow: 0 0 20px hsl(var(--primary) / 0.5);
+  }
+  .blockchain-theme .glow-primary {
+    box-shadow: var(--shadow-glow);
+  }
+  .blockchain-theme .glow-warm {
+    box-shadow: var(--shadow-warm);
+  }
+  .blockchain-theme .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  .blockchain-theme .gradient-warm {
+    background: var(--gradient-warm);
+  }
+  .blockchain-theme .gradient-text {
+    background: var(--gradient-warm);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}

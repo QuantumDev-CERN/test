@@ -8,13 +8,16 @@ import {
   POSE_CONNECTIONS,
 } from "@mediapipe/holistic";
 import { useEffect, useRef, useState } from "react";
-import { useVideoRecognition } from "../hooks/useVideoRecognition";
+import { useChat } from "../hooks/useChat"; // <-- CHANGED: Import new unified store
 
 export const CameraWidget = () => {
   const [start, setStart] = useState(false);
   const videoElement = useRef();
   const drawCanvas = useRef();
-  const setVideoElement = useVideoRecognition((state) => state.setVideoElement);
+
+  // --- Get state setters from our new store ---
+  const setVideoElement = useChat((state) => state.setVideoElement); // <-- CHANGED
+  const setMode = useChat((state) => state.setMode); // <-- CHANGED: Get the 'setMode' function
 
   const drawResults = (results) => {
     drawCanvas.current.width = videoElement.current.videoWidth;
@@ -74,7 +77,8 @@ export const CameraWidget = () => {
       setVideoElement(null);
       return;
     }
-    if (useVideoRecognition.getState().videoElement) {
+    // <-- CHANGED: Check state using the new store
+    if (useChat.getState().videoElement) {
       return;
     }
     setVideoElement(videoElement.current);
@@ -92,7 +96,8 @@ export const CameraWidget = () => {
     });
     holistic.onResults((results) => {
       drawResults(results);
-      useVideoRecognition.getState().resultsCallback?.(results);
+      // <-- CHANGED: Send results to the new store's callback
+      useChat.getState().resultsCallback?.(results);
     });
     const camera = new Camera(videoElement.current, {
       onFrame: async () => {
@@ -107,7 +112,13 @@ export const CameraWidget = () => {
   return (
     <>
       <button
-        onClick={() => setStart((prev) => !prev)}
+        onClick={() => {
+          // --- THIS IS THE KEY LOGIC ---
+          const newStart = !start;
+          setStart(newStart);
+          // <-- CHANGED: Update the global mode
+          setMode(newStart ? "mimic" : "chat");
+        }}
         className={`fixed bottom-4 right-4 cursor-pointer ${
           start
             ? "bg-red-500 hover:bg-red-700"

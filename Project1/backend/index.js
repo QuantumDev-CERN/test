@@ -7,6 +7,7 @@ import express from "express";
 import { promises as fs } from "fs";
 import OpenAI from "openai";
 dotenv.config();
+import ffmpegPath from "ffmpeg-static";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || "-", // Your OpenAI API key here, I used "-" to avoid errors when the key is not set but you should not do that
@@ -40,9 +41,8 @@ const execCommand = (command) => {
 const lipSyncMessage = async (message) => {
   const time = new Date().getTime();
   console.log(`Starting conversion for message ${message}`);
-  await execCommand(
-    `ffmpeg -y -i audios/message_${message}.mp3 audios/message_${message}.wav`
-    // -y to overwrite the file
+await execCommand(
+    `${ffmpegPath} -y -i audios/message_${message}.mp3 audios/message_${message}.wav`
   );
   console.log(`Conversion done in ${new Date().getTime() - time}ms`);
   const rhubarbPath = path.join(".", "bin", "rhubarb");

@@ -1,16 +1,17 @@
 import { create } from "zustand";
 
-// This is the backend URL. Make sure your backend server is running on this port.
+
 const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-// --- THIS IS THE NEW UNIFIED "BRAIN" ---
+
 export const useChat = create((set, get) => ({
-  // --- Project 2 State (Chatbot) ---
+
   messages: [],
   message: null,
   loading: false,
   cameraZoomed: true,
-  mode: "chat", // Default to "chat" mode (camera off)
+  mode: "chat",
+  audioUnlocked: false,
   setMessages: (messages) => set({ messages }),
   setMessage: (message) => set({ message }),
   setLoading: (loading) => set({ loading }),
@@ -18,11 +19,16 @@ export const useChat = create((set, get) => ({
   setMode: (mode) => set({ mode }),
 
   onMessagePlayed: () => {
-    set((state) => ({ messages: state.messages.slice(1) }));
+    set((state) => {
+      const newMessages = state.messages.slice(1);
+      return {
+        messages: newMessages,
+        message: newMessages[0] || null, 
+      };
+    });
   },
 
   chat: async (message) => {
-    console.log("Sending chat message:", message);
     set({ loading: true });
     try {
       const data = await fetch(`${backendUrl}/chat`, {
@@ -33,37 +39,25 @@ export const useChat = create((set, get) => ({
         body: JSON.stringify({ message }),
       });
       const resp = (await data.json()).messages;
-      set((state) => ({ messages: [...state.messages, ...resp] }));
+
+      set((state) => ({
+        messages: [...state.messages, ...resp],
+        message: state.messages.length === 0 ? resp[0] : state.message,
+      }));
     } catch (e) {
-      console.error("Error in chat API:", e);
+      console.error("Error in chat API:", e); 
     }
     set({ loading: false });
   },
 
-  // --- Project 1 State (Motion Capture) ---
+
   videoElement: null,
   setVideoElement: (videoElement) => set({ videoElement }),
   resultsCallback: null,
   setResultsCallback: (resultsCallback) => set({ resultsCallback }),
 
-  // --- Derived State (for convenience) ---
+
   isMimicReady: () => {
     return get().mode === "mimic" && get().videoElement;
   },
 }));
-
-// --- THIS REPLACES THE <ChatProvider> useEffect ---
-// This "subscribes" to the messages array.
-// When 'messages' changes, this function runs.
-// It updates 'message' to be the first item in the array.
-useChat.subscribe(
-  (state) => state.messages, // The part of state to watch
-  (messages) => {
-    // The function to run when 'messages' changes
-    if (messages.length > 0) {
-      useChat.getState().setMessage(messages[0]);
-    } else {
-      useChat.getState().setMessage(null);
-    }
-  }
-);

@@ -6,9 +6,32 @@ export const UI = () => {
   const input = useRef();
   // Get the state we need from our unified store
   const { chat, loading, message, mode } = useChat(); // <-- 2. Get the 'mode'
+  
+  // --- THIS IS THE FIX ---
+  const set = useChat.setState; // <-- Use setState from the hook
+  // --- END OF FIX ---
 
   const sendMessage = () => {
     const text = input.current.value;
+
+    // --- AUDIO UNLOCK FIX ---
+    if (!useChat.getState().audioUnlocked) {
+      // A tiny, silent WAV file
+      const dummyAudio = new Audio(
+        "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYBAACABAAZGF0YQAAAAA="
+      );
+      dummyAudio
+        .play()
+        .then(() => {
+          console.log("Audio context unlocked!");
+          set({ audioUnlocked: true }); // This will now work
+        })
+        .catch((e) => {
+          console.error("Audio unlock failed:", e);
+        });
+    }
+    // --- END OF FIX ---
+
     // Check if we're busy, and also if the input isn't empty
     if (!loading && !message && text.trim()) {
       chat(text);

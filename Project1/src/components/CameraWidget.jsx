@@ -8,16 +8,16 @@ import {
   POSE_CONNECTIONS,
 } from "@mediapipe/holistic";
 import { useEffect, useRef, useState } from "react";
-import { useChat } from "../hooks/useChat"; // <-- CHANGED: Import new unified store
+import { useChat } from "../hooks/useChat"; 
 
 export const CameraWidget = () => {
   const [start, setStart] = useState(false);
   const videoElement = useRef();
   const drawCanvas = useRef();
 
-  // --- Get state setters from our new store ---
-  const setVideoElement = useChat((state) => state.setVideoElement); // <-- CHANGED
-  const setMode = useChat((state) => state.setMode); // <-- CHANGED: Get the 'setMode' function
+  
+  const setVideoElement = useChat((state) => state.setVideoElement); 
+  const setMode = useChat((state) => state.setMode); 
 
   const drawResults = (results) => {
     drawCanvas.current.width = videoElement.current.videoWidth;
@@ -30,7 +30,7 @@ export const CameraWidget = () => {
       drawCanvas.current.width,
       drawCanvas.current.height
     );
-    // Use `Mediapipe` drawing functions
+    
     drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {
       color: "#00cff7",
       lineWidth: 4,
@@ -44,7 +44,7 @@ export const CameraWidget = () => {
       lineWidth: 1,
     });
     if (results.faceLandmarks && results.faceLandmarks.length === 478) {
-      //draw pupils
+      
       drawLandmarks(
         canvasCtx,
         [results.faceLandmarks[468], results.faceLandmarks[468 + 5]],
@@ -77,7 +77,7 @@ export const CameraWidget = () => {
       setVideoElement(null);
       return;
     }
-    // <-- CHANGED: Check state using the new store
+  
     if (useChat.getState().videoElement) {
       return;
     }
@@ -96,7 +96,7 @@ export const CameraWidget = () => {
     });
     holistic.onResults((results) => {
       drawResults(results);
-      // <-- CHANGED: Send results to the new store's callback
+      
       useChat.getState().resultsCallback?.(results);
     });
     const camera = new Camera(videoElement.current, {
@@ -113,10 +113,10 @@ export const CameraWidget = () => {
     <>
       <button
         onClick={() => {
-          // --- THIS IS THE KEY LOGIC ---
+          
           const newStart = !start;
           setStart(newStart);
-          // <-- CHANGED: Update the global mode
+         
           setMode(newStart ? "mimic" : "chat");
         }}
         className={`fixed bottom-4 right-4 cursor-pointer ${

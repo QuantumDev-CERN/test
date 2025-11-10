@@ -2,23 +2,20 @@ import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import { useAnimations, useFBX, useGLTF } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Face, Hand, Pose } from "kalidokit";
-import { useControls } from "leva"; // We keep this import
+import { useControls } from "leva"; 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Euler, Object3D, Quaternion, Vector3 } from "three";
 import { lerp } from "three/src/math/MathUtils.js";
-import { useChat } from "../hooks/useChat"; // Changed from useVideoRecognition
+import { useChat } from "../hooks/useChat"; 
 import { remapMixamoAnimationToVrm } from "../utils/remapMixamoAnimationToVrm";
 
 const tmpVec3 = new Vector3();
 const tmpQuat = new Quaternion();
 const tmpEuler = new Euler();
 
-// <-- NOTE: We remove 'avatar' from the props, as this component now manages it.
 export const VRMAvatar = ({ ...props }) => {
 
-  // --- THIS IS THE FIX (Part 1) ---
-  // We moved the Leva controls from Experience.jsx into this component.
-  // This hook will now only run when mode === "mimic".
+
   const {
     avatar,
     aa,
@@ -58,10 +55,10 @@ export const VRMAvatar = ({ ...props }) => {
       value: "Idle",
     },
   });
-  // ---------------------------------
+  
 
   const { scene, userData } = useGLTF(
-    `models/${avatar}`, // <-- This now uses the 'avatar' from the hook above
+    `models/${avatar}`, 
     undefined,
     undefined,
     (loader) => {
@@ -115,7 +112,7 @@ export const VRMAvatar = ({ ...props }) => {
     });
   }, [scene, currentVrm]);
 
-  // --- Use the new unified useChat hook ---
+
   const { mode, videoElement, setResultsCallback } = useChat();
 
   const riggedFace = useRef();
@@ -125,7 +122,7 @@ export const VRMAvatar = ({ ...props }) => {
 
   const resultsCallback = useCallback(
     (results) => {
-      // Guard clause: only run if in "mimic" mode
+     
       if (useChat.getState().mode !== "mimic" || !videoElement || !currentVrm) {
         riggedFace.current = null;
         riggedPose.current = null;
@@ -134,7 +131,7 @@ export const VRMAvatar = ({ ...props }) => {
         return;
       }
       
-      // ... (rest of Kalidokit logic is unchanged) ...
+      
       if (results.faceLandmarks) {
         riggedFace.current = Face.solve(results.faceLandmarks, {
           runtime: "mediapipe",
@@ -169,7 +166,7 @@ export const VRMAvatar = ({ ...props }) => {
 
 
   useEffect(() => {
-    // Only control animations from Leva if in mimic mode
+    
     if (mode === 'mimic') {
       if (animation === "None" || videoElement) {
         actions["Idle"]?.play();
@@ -211,16 +208,15 @@ export const VRMAvatar = ({ ...props }) => {
       return;
     }
 
-    // --- This is the key logic ---
-    // Only run rigging if in "mimic" mode
+
     if (mode === "mimic" && videoElement) {
-      // --- MIMIC MODE (PROJECT 1 LOGIC) ---
+     
       currentVrm.expressionManager.setValue("angry", angry);
       currentVrm.expressionManager.setValue("sad", sad);
       currentVrm.expressionManager.setValue("happy", happy);
 
       if (riggedFace.current) {
-        // ... (Face rigging)
+       
         [
           { name: "aa", value: riggedFace.current.mouth.shape.A },
           { name: "ih", value: riggedFace.current.mouth.shape.I },
@@ -252,7 +248,7 @@ export const VRMAvatar = ({ ...props }) => {
         }
       }
       if (riggedPose.current) {
-        // ... (Pose rigging)
+       
         rotateBone("chest", riggedPose.current.Spine, delta * 5, { x: 0.3, y: 0.3, z: 0.3 });
         rotateBone("spine", riggedPose.current.Spine, delta * 5, { x: 0.3, y: 0.3, z: 0.3 });
         rotateBone("hips", riggedPose.current.Hips.rotation, delta * 5, { x: 0.7, y: 0.7, z: 0.7 });
@@ -262,12 +258,12 @@ export const VRMAvatar = ({ ...props }) => {
         rotateBone("rightLowerArm", riggedPose.current.RightLowerArm, delta * 5);
       }
       if (riggedLeftHand.current) {
-        // ... (Left hand rigging)
+       
         const amp = 3, speed = delta * 2;
         const handMap = (data) => ({ x: data.x * amp, y: -data.z, z: -data.y });
         const wristMap = (data) => ({ x: data.z, y: data.y, z: -data.x });
         rotateBone("leftHand", wristMap(riggedLeftHand.current.LeftWrist), speed);
-        // ... all other left hand bones
+        
         rotateBone("leftRingProximal", handMap(riggedLeftHand.current.LeftRingProximal), speed);
         rotateBone("leftRingIntermediate", handMap(riggedLeftHand.current.LeftRingIntermediate), speed);
         rotateBone("leftRingDistal", handMap(riggedLeftHand.current.LeftRingDistal), speed);
@@ -285,12 +281,12 @@ export const VRMAvatar = ({ ...props }) => {
         rotateBone("leftLittleDistal", handMap(riggedLeftHand.current.LeftLittleDistal), speed);
       }
       if (riggedRightHand.current) {
-        // ... (Right hand rigging)
+        
         const amp = 3, speed = delta * 2;
         const handMap = (data) => ({ x: -data.x * amp, y: data.z, z: data.y });
         const wristMap = (data) => ({ x: -data.z, y: -data.y, z: data.x });
         rotateBone("rightHand", wristMap(riggedRightHand.current.RightWrist), speed);
-        // ... all other right hand bones
+        
         rotateBone("rightRingProximal", handMap(riggedRightHand.current.RightRingProximal), speed);
         rotateBone("rightRingIntermediate", handMap(riggedRightHand.current.RightRingIntermediate), speed);
         rotateBone("rightRingDistal", handMap(riggedRightHand.current.RightRingDistal), speed);
@@ -309,9 +305,7 @@ export const VRMAvatar = ({ ...props }) => {
       }
 
     } else {
-      // --- FALLBACK / CHAT MODE IDLE ---
-      // If we are in "chat" mode, this component is visible but
-      // the ChatbotAvatar is NOT. So we just use Leva controls.
+
       currentVrm.expressionManager.setValue("angry", angry);
       currentVrm.expressionManager.setValue("sad", sad);
       currentVrm.expressionManager.setValue("happy", happy);

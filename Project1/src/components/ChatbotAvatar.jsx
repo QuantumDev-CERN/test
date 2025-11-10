@@ -1,7 +1,4 @@
-/*
-This is the original, working code from Project 2,
-adapted to work inside Project 1 with all bug fixes.
-*/
+
 
 import { useAnimations, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
@@ -11,7 +8,7 @@ import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { useChat } from "../hooks/useChat";
 
-// (facialExpressions and corresponding objects are here, no changes)
+
 const facialExpressions = {
   default: {},
   smile: {
@@ -111,41 +108,77 @@ export function ChatbotAvatar(props) {
     "/models/64f1a714fe61576b46f27ca2.glb"
   );
 
-  // --- FINAL FIX: Guard Clause ---
-  // We check for the *minimum* required nodes.
-  // If they don't exist, we render 'null' and wait for React
-  // to re-render when the 'useGLTF' hook finishes.
+
   if (
     !nodes.Hips ||
     !nodes.Wolf3D_Body ||
     !nodes.EyeLeft ||
     !nodes.EyeLeft.morphTargetDictionary
   ) {
-    // This is not an error, it's just loading.
-    // The <Suspense> boundary in App.jsx will catch this.
     return null;
   }
-  // ------------------------------
-  
-  // All code below this point is now SAFE because we know 'nodes' is loaded.
+
+
+
+
+  const audio = useRef();
+
   
   const { message, onMessagePlayed, chat } = useChat();
 
   const [lipsync, setLipsync] = useState();
 
+
   useEffect(() => {
     if (!message) {
-      setAnimation("Idle");
-      return;
+      console.log("Audio: Message is null, setting animation to Idle.");
+      setAnimation("Idle"); 
+      return; 
     }
+
+  
+    console.log(`Audio: New message received. Text: "${message.text}", Animation: "${message.animation}"`);
     setAnimation(message.animation);
     setFacialExpression(message.facialExpression);
     setLipsync(message.lipsync);
-    const audio = new Audio("data:audio/mp3;base64," + message.audio);
-    audio.play();
-    setAudio(audio);
-    audio.onended = onMessagePlayed;
-  }, [message]);
+    
+    
+    console.log("Audio: Creating new Audio element...");
+    const newAudio = new Audio("data:audio/mp3;base64," + message.audio);
+    
+    
+    newAudio.onended = () => {
+      console.log("Audio: 'onended' event fired. Calling onMessagePlayed.");
+      onMessagePlayed();
+    };
+
+    
+    newAudio.addEventListener('canplaythrough', () => {
+      console.log("Audio: 'canplaythrough' event fired. Attempting to play.");
+      newAudio.play().catch(e => console.error("Audio playback failed:", e));
+    }, { once: true });
+
+    newAudio.addEventListener('error', (e) => {
+      console.error("Audio: 'error' event fired. Audio might be corrupt.", e);
+      onMessagePlayed(); 
+    });
+
+    newAudio.addEventListener('stalled', (e) => {
+      console.warn("Audio: 'stalled' event fired.", e);
+    });
+
+    console.log("Audio: Event listeners added. Storing in ref.");
+    audio.current = newAudio;
+
+    return () => {
+      console.log("Audio: Cleanup function running for previous message.");
+      if (newAudio) {
+        newAudio.pause();
+        newAudio.onended = null; 
+      }
+    };
+  }, [message, onMessagePlayed]); 
+
 
   const { animations: rawAnimations } = useGLTF("/models/chatbot_animations.glb");
   const animations = rawAnimations || [];
@@ -157,13 +190,21 @@ export function ChatbotAvatar(props) {
     () => (animations.find((a) => a.name === "Idle") ? "Idle" : animations[0]?.name) || "Idle"
   );
   
+
   useEffect(() => {
-    actions[animation]
-      ?.reset()
-      .fadeIn(mixer.stats.actions.inUse === 0 ? 0 : 0.5)
-      .play();
-    return () => actions[animation]?.fadeOut(0.5);
+   
+    if (actions[animation]) {
+      actions[animation]
+        ?.reset()
+        .fadeIn(mixer.stats.actions.inUse === 0 ? 0 : 0.5)
+        .play();
+      return () => actions[animation]?.fadeOut(0.5);
+    } else {
+      
+      console.warn(`Animation "${animation}" not found in chatbot_animations.glb`);
+    }
   }, [animation, actions, mixer]);
+
 
   const lerpMorphTarget = (target, value, speed = 0.1) => {
     scene.traverse((child) => {
@@ -181,13 +222,7 @@ export function ChatbotAvatar(props) {
           speed
         );
 
-        if (!setupMode) {
-          try {
-            set({
-              [target]: value,
-            });
-          } catch (e) {}
-        }
+
       }
     });
   };
@@ -196,10 +231,8 @@ export function ChatbotAvatar(props) {
   const [winkLeft, setWinkLeft] = useState(false);
   const [winkRight, setWinkRight] = useState(false);
   const [facialExpression, setFacialExpression] = useState("");
-  const [audio, setAudio] = useState();
 
   useFrame(() => {
-    // This hook is now safe because of the main guard clause
     !setupMode &&
       Object.keys(nodes.EyeLeft.morphTargetDictionary).forEach((key) => {
         const mapping = facialExpressions[facialExpression];
@@ -220,18 +253,22 @@ export function ChatbotAvatar(props) {
       return;
     }
 
-    // LIPSYNC
+   
     const appliedMorphTargets = [];
-    if (message && lipsync) {
-      const currentAudioTime = audio.currentTime;
-      for (let i = 0; i < lipsync.mouthCues.length; i++) {
+    
+    if (message && lipsync && audio.current) {
+      const currentAudioTime = audio.current.currentTime;
+      
+      for (let i = 0; i < lipsync.mouthCues.length; i++) { 
         const mouthCue = lipsync.mouthCues[i];
         if (
           currentAudioTime >= mouthCue.start &&
           currentAudioTime <= mouthCue.end
         ) {
-          appliedMorphTargets.push(corresponding[mouthCue.value]);
-          lerpMorphTarget(corresponding[mouthCue.value], 1, 0.2);
+          if (corresponding[mouthCue.value]) {
+            appliedMorphTargets.push(corresponding[mouthCue.value]);
+            lerpMorphTarget(corresponding[mouthCue.value], 1, 0.2);
+          }
           break;
         }
       }
@@ -271,7 +308,6 @@ export function ChatbotAvatar(props) {
       setupMode = false;
     }),
     logMorphTargetValues: button(() => {
-      // This hook is now safe
       const emotionValues = {};
       Object.keys(nodes.EyeLeft.morphTargetDictionary).forEach((key) => {
         if (key === "eyeBlinkLeft" || key === "eyeBlinkRight") {

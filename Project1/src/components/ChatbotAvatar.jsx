@@ -23,7 +23,56 @@ const facialExpressions = {
     mouthPressLeft: 0.61,
     mouthPressRight: 0.41000000000000003,
   },
-  // ... (all other expressions) ...
+  funnyFace: {
+    jawLeft: 0.63,
+    mouthPucker: 0.53,
+    noseSneerLeft: 1,
+    noseSneerRight: 0.39,
+    mouthLeft: 1,
+    eyeLookUpLeft: 1,
+    eyeLookUpRight: 1,
+    cheekPuff: 0.9999924982764238,
+    mouthDimpleLeft: 0.414743888682652,
+    mouthRollLower: 0.32,
+    mouthSmileLeft: 0.35499733688813034,
+    mouthSmileRight: 0.35499733688813034,
+  },
+  sad: {
+    mouthFrownLeft: 1,
+    mouthFrownRight: 1,
+    mouthShrugLower: 0.78341,
+    browInnerUp: 0.452,
+    eyeSquintLeft: 0.72,
+    eyeSquintRight: 0.75,
+    eyeLookDownLeft: 0.5,
+    eyeLookDownRight: 0.5,
+    jawForward: 1,
+  },
+  surprised: {
+    eyeWideLeft: 0.5,
+    eyeWideRight: 0.5,
+    jawOpen: 0.351,
+    mouthFunnel: 1,
+    browInnerUp: 1,
+  },
+  angry: {
+    browDownLeft: 1,
+    browDownRight: 1,
+    eyeSquintLeft: 1,
+    eyeSquintRight: 1,
+    jawForward: 1,
+    jawLeft: 1,
+    mouthShrugLower: 1,
+    noseSneerLeft: 1,
+    noseSneerRight: 0.42,
+    eyeLookDownLeft: 0.16,
+    eyeLookDownRight: 0.16,
+    cheekSquintLeft: 1,
+    cheekSquintRight: 1,
+    mouthClose: 0.23,
+    mouthFunnel: 0.63,
+    mouthDimpleRight: 1,
+  },
   crazy: {
     browInnerUp: 0.9,
     jawForward: 1,
@@ -62,6 +111,24 @@ export function ChatbotAvatar(props) {
     "/models/64f1a714fe61576b46f27ca2.glb"
   );
 
+  // --- FINAL FIX: Guard Clause ---
+  // We check for the *minimum* required nodes.
+  // If they don't exist, we render 'null' and wait for React
+  // to re-render when the 'useGLTF' hook finishes.
+  if (
+    !nodes.Hips ||
+    !nodes.Wolf3D_Body ||
+    !nodes.EyeLeft ||
+    !nodes.EyeLeft.morphTargetDictionary
+  ) {
+    // This is not an error, it's just loading.
+    // The <Suspense> boundary in App.jsx will catch this.
+    return null;
+  }
+  // ------------------------------
+  
+  // All code below this point is now SAFE because we know 'nodes' is loaded.
+  
   const { message, onMessagePlayed, chat } = useChat();
 
   const [lipsync, setLipsync] = useState();
@@ -132,11 +199,7 @@ export function ChatbotAvatar(props) {
   const [audio, setAudio] = useState();
 
   useFrame(() => {
-    // Guard clause for useFrame
-    if (!nodes.EyeLeft || !nodes.EyeLeft.morphTargetDictionary) {
-      return;
-    }
-
+    // This hook is now safe because of the main guard clause
     !setupMode &&
       Object.keys(nodes.EyeLeft.morphTargetDictionary).forEach((key) => {
         const mapping = facialExpressions[facialExpression];
@@ -208,11 +271,7 @@ export function ChatbotAvatar(props) {
       setupMode = false;
     }),
     logMorphTargetValues: button(() => {
-      // Guard clause for Leva
-      if (!nodes.EyeLeft || !nodes.EyeLeft.morphTargetDictionary) {
-        console.log("Model not loaded yet.");
-        return;
-      }
+      // This hook is now safe
       const emotionValues = {};
       Object.keys(nodes.EyeLeft.morphTargetDictionary).forEach((key) => {
         if (key === "eyeBlinkLeft" || key === "eyeBlinkRight") {
@@ -231,10 +290,7 @@ export function ChatbotAvatar(props) {
   });
 
   const [, set] = useControls("MorphTarget", () => {
-    // Guard clause for Leva
-    if (!nodes.EyeLeft || !nodes.EyeLeft.morphTargetDictionary) {
-      return {};
-    }
+    // This hook is now safe
     return Object.assign(
       {},
       ...Object.keys(nodes.EyeLeft.morphTargetDictionary).map((key) => {
@@ -272,26 +328,7 @@ export function ChatbotAvatar(props) {
     return () => clearTimeout(blinkTimeout);
   }, []);
 
-  // --- FINAL FIX ---
-  // This robust guard clause checks all the properties that are
-  // about to be used in the JSX below.
-  // This will stop the `reading 'geometry'` crash.
-  if (
-    !nodes.Hips ||
-    !nodes.Wolf3D_Body ||
-    !nodes.Wolf3D_Outfit_Bottom ||
-    !nodes.Wolf3D_Outfit_Footwear ||
-    !nodes.Wolf3D_Outfit_Top ||
-    !nodes.Wolf3D_Hair ||
-    !nodes.EyeLeft ||
-    !nodes.EyeRight ||
-    !nodes.Wolf3D_Head ||
-    !nodes.Wolf3D_Teeth
-  ) {
-    return null; // Render nothing until the model is fully loaded
-  }
-  // ---------------------
-
+  // This JSX is now safe to render because of the guard clause at the top
   return (
     <group {...props} dispose={null} ref={group}>
       <primitive object={nodes.Hips} />

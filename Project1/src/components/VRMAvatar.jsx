@@ -2,20 +2,66 @@ import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import { useAnimations, useFBX, useGLTF } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Face, Hand, Pose } from "kalidokit";
-import { useControls } from "leva";
+import { useControls } from "leva"; // We keep this import
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Euler, Object3D, Quaternion, Vector3 } from "three";
 import { lerp } from "three/src/math/MathUtils.js";
-import { useChat } from "../hooks/useChat"; // <-- CHANGED: Import the unified store
+import { useChat } from "../hooks/useChat"; // Changed from useVideoRecognition
 import { remapMixamoAnimationToVrm } from "../utils/remapMixamoAnimationToVrm";
 
 const tmpVec3 = new Vector3();
 const tmpQuat = new Quaternion();
 const tmpEuler = new Euler();
 
-export const VRMAvatar = ({ avatar, ...props }) => {
+// <-- NOTE: We remove 'avatar' from the props, as this component now manages it.
+export const VRMAvatar = ({ ...props }) => {
+
+  // --- THIS IS THE FIX (Part 1) ---
+  // We moved the Leva controls from Experience.jsx into this component.
+  // This hook will now only run when mode === "mimic".
+  const {
+    avatar,
+    aa,
+    ih,
+    ee,
+    oh,
+    ou,
+    blinkLeft,
+    blinkRight,
+    angry,
+    sad,
+    happy,
+    animation,
+  } = useControls("VRM", {
+    avatar: {
+      value: "3859814441197244330.vrm",
+      options: [
+        "262410318834873893.vrm",
+        "3859814441197244330.vrm",
+        "3636451243928341470.vrm",
+        "8087383217573817818.vrm",
+      ],
+    },
+    // The rest of the controls from the original file
+    aa: { value: 0, min: 0, max: 1 },
+    ih: { value: 0, min: 0, max: 1 },
+    ee: { value: 0, min: 0, max: 1 },
+    oh: { value: 0, min: 0, max: 1 },
+    ou: { value: 0, min: 0, max: 1 },
+    blinkLeft: { value: 0, min: 0, max: 1 },
+    blinkRight: { value: 0, min: 0, max: 1 },
+    angry: { value: 0, min: 0, max: 1 },
+    sad: { value: 0, min: 0, max: 1 },
+    happy: { value: 0, min: 0, max: 1 },
+    animation: {
+      options: ["None", "Idle", "Swing Dancing", "Thriller Part 2"],
+      value: "Idle",
+    },
+  });
+  // ---------------------------------
+
   const { scene, userData } = useGLTF(
-    `models/${avatar}`,
+    `models/${avatar}`, // <-- This now uses the 'avatar' from the hook above
     undefined,
     undefined,
     (loader) => {
@@ -25,7 +71,6 @@ export const VRMAvatar = ({ avatar, ...props }) => {
     }
   );
 
-  // --- Original animation loading ---
   const assetA = useFBX("models/animations/Swing Dancing.fbx");
   const assetB = useFBX("models/animations/Thriller Part 2.fbx");
   const assetC = useFBX("models/animations/Breathing Idle.fbx");
@@ -33,63 +78,63 @@ export const VRMAvatar = ({ avatar, ...props }) => {
   const currentVrm = userData.vrm;
 
   const animationClipA = useMemo(() => {
+    if (!currentVrm) return null;
     const clip = remapMixamoAnimationToVrm(currentVrm, assetA);
     clip.name = "Swing Dancing";
     return clip;
   }, [assetA, currentVrm]);
 
   const animationClipB = useMemo(() => {
+    if (!currentVrm) return null;
     const clip = remapMixamoAnimationToVrm(currentVrm, assetB);
     clip.name = "Thriller Part 2";
     return clip;
   }, [assetB, currentVrm]);
 
   const animationClipC = useMemo(() => {
+    if (!currentVrm) return null;
     const clip = remapMixamoAnimationToVrm(currentVrm, assetC);
     clip.name = "Idle";
     return clip;
   }, [assetC, currentVrm]);
 
   const { actions } = useAnimations(
-    [animationClipA, animationClipB, animationClipC],
-    currentVrm.scene
+    [animationClipA, animationClipB, animationClipC].filter(Boolean),
+    currentVrm?.scene
   );
 
   useEffect(() => {
-    const vrm = userData.vrm;
-    // ... (Original VRMUtils setup, no changes) ...
+    if (!currentVrm) return;
+    const vrm = currentVrm;
     VRMUtils.removeUnnecessaryVertices(scene);
     VRMUtils.combineSkeletons(scene);
     VRMUtils.combineMorphs(vrm);
+
     vrm.scene.traverse((obj) => {
       obj.frustumCulled = false;
     });
-  }, [scene]);
+  }, [scene, currentVrm]);
 
-  // --- Get state from our new unified store ---
-  const { mode, videoElement, setResultsCallback } = useChat(); // <-- CHANGED
+  // --- Use the new unified useChat hook ---
+  const { mode, videoElement, setResultsCallback } = useChat();
 
-  // --- Rigging refs ---
   const riggedFace = useRef();
   const riggedPose = useRef();
   const riggedLeftHand = useRef();
   const riggedRightHand = useRef();
 
-  // --- Results Callback (for MediaPipe) ---
   const resultsCallback = useCallback(
     (results) => {
-      // <-- CHANGED: Guard clause
-      // Only process results if we are in "mimic" mode
+      // Guard clause: only run if in "mimic" mode
       if (useChat.getState().mode !== "mimic" || !videoElement || !currentVrm) {
-        // Clear refs to prevent stale data
         riggedFace.current = null;
         riggedPose.current = null;
         riggedLeftHand.current = null;
         riggedRightHand.current = null;
         return;
       }
-
-      // --- Original Kalidokit logic ---
+      
+      // ... (rest of Kalidokit logic is unchanged) ...
       if (results.faceLandmarks) {
         riggedFace.current = Face.solve(results.faceLandmarks, {
           runtime: "mediapipe",
@@ -118,72 +163,28 @@ export const VRMAvatar = ({ avatar, ...props }) => {
     [videoElement, currentVrm]
   );
 
-  // --- Set the callback in the store ---
   useEffect(() => {
     setResultsCallback(resultsCallback);
-  }, [resultsCallback, setResultsCallback]); // <-- CHANGED: Added setResultsCallback
+  }, [resultsCallback, setResultsCallback]);
 
-  // --- Leva Controls (no change) ---
-  const {
-    aa,
-    ih,
-    ee,
-    oh,
-    ou,
-    blinkLeft,
-    blinkRight,
-    angry,
-    sad,
-    happy,
-    animation,
-  } = useControls("VRM", {
-    aa: { value: 0, min: 0, max: 1 },
-    ih: { value: 0, min: 0, max: 1 },
-    ee: { value: 0, min: 0, max: 1 },
-    oh: { value: 0, min: 0, max: 1 },
-    ou: { value: 0, min: 0, max: 1 },
-    blinkLeft: { value: 0, min: 0, max: 1 },
-    blinkRight: { value: 0, min: 0, max: 1 },
-    angry: { value: 0, min: 0, max: 1 },
-    sad: { value: 0, min: 0, max: 1 },
-    happy: { value: 0, min: 0, max: 1 },
-    animation: {
-      options: ["None", "Idle", "Swing Dancing", "Thriller Part 2"],
-      value: "Idle",
-    },
-  });
 
-  // --- Animation playback ---
   useEffect(() => {
-    // <-- CHANGED: This logic is now mode-dependent
-    if (mode === "mimic") {
-      // We are in mimic mode, use original logic
+    // Only control animations from Leva if in mimic mode
+    if (mode === 'mimic') {
       if (animation === "None" || videoElement) {
-        actions["Idle"]?.play(); // Default to idle
-        return () => {
-          actions["Idle"]?.stop();
-        };
+        actions["Idle"]?.play();
+        return () => { actions["Idle"]?.stop(); };
       }
       actions[animation]?.play();
-      return () => {
-        actions[animation]?.stop();
-      };
-    } else {
-      // We are in "chat" mode. Just play Idle.
-      // The ChatbotAvatar will be handling its own animations.
-      actions["Idle"]?.play();
-      return () => {
-        actions["Idle"]?.stop();
-      };
+      return () => { actions[animation]?.stop(); };
     }
-  }, [actions, animation, videoElement, mode]); // <-- CHANGED: Added 'mode'
+  }, [actions, animation, videoElement, mode]);
 
-  // --- Helper Functions (no change) ---
   const lerpExpression = (name, value, lerpFactor) => {
-    if (!userData.vrm) return;
-    userData.vrm.expressionManager.setValue(
+    if (!currentVrm) return;
+    currentVrm.expressionManager.setValue(
       name,
-      lerp(userData.vrm.expressionManager.getValue(name), value, lerpFactor)
+      lerp(currentVrm.expressionManager.getValue(name), value, lerpFactor)
     );
   };
 
@@ -197,70 +198,43 @@ export const VRMAvatar = ({ avatar, ...props }) => {
       z: 1,
     }
   ) => {
-    if (!userData.vrm) return;
-    const bone = userData.vrm.humanoid.getNormalizedBoneNode(boneName);
-    if (!bone) {
-      return;
-    }
+    if (!currentVrm) return;
+    const bone = currentVrm.humanoid.getNormalizedBoneNode(boneName);
+    if (!bone) { return; }
     tmpEuler.set(value.x * flip.x, value.y * flip.y, value.z * flip.z);
     tmpQuat.setFromEuler(tmpEuler);
     bone.quaternion.slerp(tmpQuat, slerpFactor);
   };
 
-  // --- Main Render Loop (useFrame) ---
   useFrame((_, delta) => {
-    if (!userData.vrm) {
+    if (!currentVrm) {
       return;
     }
 
-    // <-- CHANGED: This is the main logic switch
+    // --- This is the key logic ---
+    // Only run rigging if in "mimic" mode
     if (mode === "mimic" && videoElement) {
-      // --- MIMIC MODE (Camera ON) ---
-      // This is the original logic from your file's `else` block
+      // --- MIMIC MODE (PROJECT 1 LOGIC) ---
+      currentVrm.expressionManager.setValue("angry", angry);
+      currentVrm.expressionManager.setValue("sad", sad);
+      currentVrm.expressionManager.setValue("happy", happy);
 
-      // Apply Leva emotion controls
-      userData.vrm.expressionManager.setValue("angry", angry);
-      userData.vrm.expressionManager.setValue("sad", sad);
-      userData.vrm.expressionManager.setValue("happy", happy);
-
-      // Apply rigging
       if (riggedFace.current) {
+        // ... (Face rigging)
         [
-          {
-            name: "aa",
-            value: riggedFace.current.mouth.shape.A,
-          },
-          {
-            name: "ih",
-            value: riggedFace.current.mouth.shape.I,
-          },
-          {
-            name: "ee",
-            value: riggedFace.current.mouth.shape.E,
-          },
-          {
-            name: "oh",
-            value: riggedFace.current.mouth.shape.O,
-          },
-          {
-            name: "ou",
-            value: riggedFace.current.mouth.shape.U,
-          },
-          {
-            name: "blinkLeft",
-            value: 1 - riggedFace.current.eye.l,
-          },
-          {
-            name: "blinkRight",
-            value: 1 - riggedFace.current.eye.r,
-          },
+          { name: "aa", value: riggedFace.current.mouth.shape.A },
+          { name: "ih", value: riggedFace.current.mouth.shape.I },
+          { name: "ee", value: riggedFace.current.mouth.shape.E },
+          { name: "oh", value: riggedFace.current.mouth.shape.O },
+          { name: "ou", value: riggedFace.current.mouth.shape.U },
+          { name: "blinkLeft", value: 1 - riggedFace.current.eye.l },
+          { name: "blinkRight", value: 1 - riggedFace.current.eye.r },
         ].forEach((item) => {
           lerpExpression(item.name, item.value, delta * 12);
         });
 
-        // Eyes
         if (lookAtTarget.current && riggedFace.current.pupil) {
-          userData.vrm.lookAt.target = lookAtTarget.current;
+          currentVrm.lookAt.target = lookAtTarget.current;
           lookAtDestination.current.set(
             -2 * riggedFace.current.pupil.x,
             2 * riggedFace.current.pupil.y,
@@ -271,56 +245,29 @@ export const VRMAvatar = ({ avatar, ...props }) => {
             delta * 5
           );
         }
-
-        // Body
         if (riggedFace.current.head) {
           rotateBone("neck", riggedFace.current.head, delta * 5, {
-            x: 0.7,
-            y: 0.7,
-            z: 0.7,
+            x: 0.7, y: 0.7, z: 0.7,
           });
         }
       }
-
-      // <-- FIX: This logic must be INSIDE the mimic mode check
       if (riggedPose.current) {
-        rotateBone("chest", riggedPose.current.Spine, delta * 5, {
-          x: 0.3,
-          y: 0.3,
-          z: 0.3,
-        });
-        rotateBone("spine", riggedPose.current.Spine, delta * 5, {
-          x: 0.3,
-          y: 0.3,
-          z: 0.3,
-        });
-        rotateBone("hips", riggedPose.current.Hips.rotation, delta * 5, {
-          x: 0.7,
-          y: 0.7,
-          z: 0.7,
-        });
-
-        // LEFT ARM
+        // ... (Pose rigging)
+        rotateBone("chest", riggedPose.current.Spine, delta * 5, { x: 0.3, y: 0.3, z: 0.3 });
+        rotateBone("spine", riggedPose.current.Spine, delta * 5, { x: 0.3, y: 0.3, z: 0.3 });
+        rotateBone("hips", riggedPose.current.Hips.rotation, delta * 5, { x: 0.7, y: 0.7, z: 0.7 });
         rotateBone("leftUpperArm", riggedPose.current.LeftUpperArm, delta * 5);
         rotateBone("leftLowerArm", riggedPose.current.LeftLowerArm, delta * 5);
-        // RIGHT ARM
         rotateBone("rightUpperArm", riggedPose.current.RightUpperArm, delta * 5);
         rotateBone("rightLowerArm", riggedPose.current.RightLowerArm, delta * 5);
       }
-      
-      // --- FINGER & WRIST SOLUTION ---
       if (riggedLeftHand.current) {
-        const amp = 3;
-        const speed = delta * 2;
-        const handMap = (data) => ({
-          x: data.x * amp,
-          y: -data.z,
-          z: -data.y,
-        });
+        // ... (Left hand rigging)
+        const amp = 3, speed = delta * 2;
+        const handMap = (data) => ({ x: data.x * amp, y: -data.z, z: -data.y });
         const wristMap = (data) => ({ x: data.z, y: data.y, z: -data.x });
-
         rotateBone("leftHand", wristMap(riggedLeftHand.current.LeftWrist), speed);
-        // ... (all other left hand rotateBone calls) ...
+        // ... all other left hand bones
         rotateBone("leftRingProximal", handMap(riggedLeftHand.current.LeftRingProximal), speed);
         rotateBone("leftRingIntermediate", handMap(riggedLeftHand.current.LeftRingIntermediate), speed);
         rotateBone("leftRingDistal", handMap(riggedLeftHand.current.LeftRingDistal), speed);
@@ -337,19 +284,13 @@ export const VRMAvatar = ({ avatar, ...props }) => {
         rotateBone("leftLittleIntermediate", handMap(riggedLeftHand.current.LeftLittleIntermediate), speed);
         rotateBone("leftLittleDistal", handMap(riggedLeftHand.current.LeftLittleDistal), speed);
       }
-
       if (riggedRightHand.current) {
-        const amp = 3;
-        const speed = delta * 2;
-        const handMap = (data) => ({
-          x: -data.x * amp,
-          y: data.z,
-          z: data.y,
-        });
+        // ... (Right hand rigging)
+        const amp = 3, speed = delta * 2;
+        const handMap = (data) => ({ x: -data.x * amp, y: data.z, z: data.y });
         const wristMap = (data) => ({ x: -data.z, y: -data.y, z: data.x });
-
         rotateBone("rightHand", wristMap(riggedRightHand.current.RightWrist), speed);
-        // ... (all other right hand rotateBone calls) ...
+        // ... all other right hand bones
         rotateBone("rightRingProximal", handMap(riggedRightHand.current.RightRingProximal), speed);
         rotateBone("rightRingIntermediate", handMap(riggedRightHand.current.RightRingIntermediate), speed);
         rotateBone("rightRingDistal", handMap(riggedRightHand.current.RightRingDistal), speed);
@@ -366,53 +307,30 @@ export const VRMAvatar = ({ avatar, ...props }) => {
         rotateBone("rightLittleIntermediate", handMap(riggedRightHand.current.RightLittleIntermediate), speed);
         rotateBone("rightLittleDistal", handMap(riggedRightHand.current.RightLittleDistal), speed);
       }
-    } else {
-      // --- CHAT MODE (or Mimic mode, camera off) ---
-      // This is the original logic from your file's `if (!videoElement)` block
-      // We use the Leva controls as a fallback.
-      userData.vrm.expressionManager.setValue("angry", angry);
-      userData.vrm.expressionManager.setValue("sad", sad);
-      userData.vrm.expressionManager.setValue("happy", happy);
 
+    } else {
+      // --- FALLBACK / CHAT MODE IDLE ---
+      // If we are in "chat" mode, this component is visible but
+      // the ChatbotAvatar is NOT. So we just use Leva controls.
+      currentVrm.expressionManager.setValue("angry", angry);
+      currentVrm.expressionManager.setValue("sad", sad);
+      currentVrm.expressionManager.setValue("happy", happy);
       [
-        {
-          name: "aa",
-          value: aa,
-        },
-        {
-          name: "ih",
-          value: ih,
-        },
-        {
-          name: "ee",
-          value: ee,
-        },
-        {
-          name: "oh",
-          value: oh,
-        },
-        {
-          name: "ou",
-          value: ou,
-        },
-        {
-          name: "blinkLeft",
-          value: blinkLeft,
-        },
-        {
-          name: "blinkRight",
-          value: blinkRight,
-        },
+        { name: "aa", value: aa },
+        { name: "ih", value: ih },
+        { name: "ee", value: ee },
+        { name: "oh", value: oh },
+        { name: "ou", value: ou },
+        { name: "blinkLeft", value: blinkLeft },
+        { name: "blinkRight", value: blinkRight },
       ].forEach((item) => {
         lerpExpression(item.name, item.value, delta * 12);
       });
     }
 
-    // This updates the VRM model in ALL modes
-    userData.vrm.update(delta);
+    currentVrm.update(delta);
   });
-
-  // --- LookAt setup (no change) ---
+  
   const lookAtDestination = useRef(new Vector3(0, 0, 0));
   const camera = useThree((state) => state.camera);
   const lookAtTarget = useRef();
@@ -421,7 +339,10 @@ export const VRMAvatar = ({ avatar, ...props }) => {
     camera.add(lookAtTarget.current);
   }, [camera]);
 
-  // --- Return JSX (no change) ---
+  if (!currentVrm) {
+    return null;
+  }
+
   return (
     <group {...props}>
       <primitive

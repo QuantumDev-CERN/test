@@ -5,19 +5,19 @@ import {
 } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
-import { useControls } from "leva";
+// <-- We no longer import 'useControls' from leva here
 import { useEffect, useRef } from "react";
 
-// <-- CHANGED: Import our two different avatar components
-import { VRMAvatar } from "./VRMAvatar"; // This is the "Mimic" one (Project 1)
-import { ChatbotAvatar } from "./ChatbotAvatar"; // This is the "Chat" one (Project 2)
+// <-- Import our TWO different avatar components
+import { VRMAvatar } from "./VRMAvatar"; 
+import { ChatbotAvatar } from "./ChatbotAvatar"; 
 
-// <-- CHANGED: Import the unified store
+// <-- Import the unified store
 import { useChat } from "../hooks/useChat";
 
 const SceneBackground = () => {
   const { scene } = useThree();
-  const texture = useTexture("images/wawasensei-white.png"); // Path from your repo
+  const texture = useTexture("images/wawasensei-white.png"); 
   scene.background = texture;
   return null;
 };
@@ -26,28 +26,21 @@ export const Experience = () => {
   const controls = useRef();
 
   // --- THIS IS THE "BRAIN" OF THE SWITCHER ---
-  const { mode } = useChat(); // <-- CHANGED: Get the current mode
+  const { mode } = useChat(); // Get the current mode
   // ------------------------------------------
 
   useEffect(() => {
     if (controls.current) {
-      // Sets the initial camera position
+      // Use the original working setLookAt
       controls.current.setLookAt(0, 0.999, 3, 0, 0.999, 0, false);
     }
   }, []);
 
-  // This Leva control is for the "Mimic" avatar (VRMAvatar)
-  const { avatar } = useControls("VRM", {
-    avatar: {
-      value: "3859814441197244330.vrm", // Default model for mimic mode
-      options: [
-        "262410318834873893.vrm",
-        "3859814441197244330.vrm",
-        "3636451243928341470.vrm",
-        "8087383217573817818.vrm",
-      ],
-    },
-  });
+  // --- THIS IS THE FIX (Part 2) ---
+  // We have REMOVED the useControls("VRM", ...) hook from this file.
+  // It now lives inside VRMAvatar.jsx.
+  // We have also REMOVED the broken useFrame camera logic.
+  // -----------------------
 
   return (
     <>
@@ -70,27 +63,23 @@ export const Experience = () => {
       <group position-y={-2.5}>
         
         {/* --- THIS IS THE KEY SWITCH --- */}
-        {/* We use the 'mode' to conditionally render the correct avatar */}
         
         {mode === "mimic" && (
-          // We are in "Mimic Mode" (Camera On)
-          // Render Project 1's avatar with its specific logic
-          <VRMAvatar avatar={avatar} position-y={2} />
+          // We no longer pass the 'avatar' prop.
+          // VRMAvatar now handles its own controls.
+          <VRMAvatar position-y={2} />
         )}
         
         {mode === "chat" && (
-          // We are in "Chat Mode" (Camera Off)
-          // Render Project 2's avatar with its specific logic
-          // You may need to adjust this position-y to get the height right.
-          <ChatbotAvatar position-y={1.25} />
+          // ChatbotAvatar renders with its own controls.
+          // The position-y={2} is from our previous fix.
+          <ChatbotAvatar position-y={2} />
         )}
         
         {/* --- END OF SWITCH --- */}
 
 
         {/* This Gltf (railings) now stays at the group's base Y-level */}
-        {/* This is the original 'animations.glb' from Project 1 (the railings) */}
-        {/* This is correct because we renamed Project 2's file. */}
         <Gltf
           src="models/animations.glb"
           position-z={-1.4}
